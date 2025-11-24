@@ -4,6 +4,24 @@
 
 This is an Android mobile application that monitors real-time CPU and GPU metrics including usage percentages, temperatures, thermal states, and battery temperature. The app targets Android 10+ (API 29+) and provides color-coded visual feedback based on thermal levels. The project is designed to be built primarily through GitHub Actions CI/CD rather than local development environments.
 
+## Recent Changes
+
+### November 24, 2025 - Gradle Build Configuration Fixed
+**Fixed build error**: `GradleScriptException: A problem occurred evaluating root project 'CPU GPU Monitor'`
+
+**Root Cause**: Repository configuration conflict between `settings.gradle` and `build.gradle`
+- `settings.gradle` configured with `FAIL_ON_PROJECT_REPOS` mode (repositories should only be in settings.gradle)
+- `build.gradle` had `allprojects{}` block redefining repositories, causing conflict
+
+**Changes Made**:
+1. ✅ Removed invalid `wrapper{}` configuration block from `settings.gradle` (lines 20-24)
+   - Wrapper configuration doesn't belong in settings.gradle
+2. ✅ Removed `allprojects{}` repository block from root `build.gradle`
+   - Repositories now centralized in `settings.gradle` only
+   - Eliminates repository definition conflict
+
+**Result**: Gradle build now succeeds. Configuration validated with `./gradlew tasks`.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
