@@ -3,6 +3,7 @@ package com.monitor.cpugpu
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
+import android.view.Choreographer
 import androidx.annotation.RequiresApi
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -21,18 +22,46 @@ class ThermalMonitor(private val context: Context) {
     private var lastCpuIdle = 0L
     private var isFirstRead = true
     
+    private var lastFrameTime = 0L
+    private var frameCount = 0
+    private var currentFps = 0f
+    private val fpsFrameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (lastFrameTime > 0) {
+                val deltaTime = (frameTimeNanos - lastFrameTime) / 1_000_000_000.0
+                frameCount++
+                
+                if (deltaTime >= 1.0) {
+                    currentFps = frameCount / deltaTime.toFloat()
+                    frameCount = 0
+                    lastFrameTime = frameTimeNanos
+                }
+            } else {
+                lastFrameTime = frameTimeNanos
+            }
+            
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+    
     fun startMonitoring(onStatusChanged: (Int) -> Unit) {
         statusCallback = onStatusChanged
         thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
             statusCallback?.invoke(status)
         }
         thermalListener?.let { powerManager.addThermalStatusListener(it) }
+        Choreographer.getInstance().postFrameCallback(fpsFrameCallback)
     }
     
     fun stopMonitoring() {
         thermalListener?.let { powerManager.removeThermalStatusListener(it) }
         thermalListener = null
         statusCallback = null
+        Choreographer.getInstance().removeFrameCallback(fpsFrameCallback)
+    }
+    
+    fun getFPS(): Float {
+        return currentFps
     }
     
     fun getCurrentThermalStatus(): Int {

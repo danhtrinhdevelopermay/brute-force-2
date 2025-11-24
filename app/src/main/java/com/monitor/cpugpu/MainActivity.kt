@@ -1,11 +1,19 @@
 package com.monitor.cpugpu
 
+import android.app.ActivityManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.monitor.cpugpu.databinding.ActivityMainBinding
 
@@ -15,6 +23,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var thermalMonitor: ThermalMonitor
     private val handler = Handler(Looper.getMainLooper())
     private var isMonitoring = false
+    private var isOverlayActive = false
+    
+    private val overlayStoppedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == OverlayService.ACTION_OVERLAY_STOPPED) {
+                isOverlayActive = false
+                binding.toggleOverlayButton.text = "Enable Floating Overlay"
+                saveOverlayState()
+            }
+        }
+    }
+    
+    companion object {
+        private const val OVERLAY_PERMISSION_REQUEST_CODE = 1001
+        private const val PREFS_NAME = "OverlayPrefs"
+        private const val KEY_OVERLAY_ACTIVE = "overlay_active"
+    }
     
     private val updateRunnable = object : Runnable {
         override fun run() {
@@ -34,9 +59,128 @@ class MainActivity : AppCompatActivity() {
             thermalMonitor = ThermalMonitor(this)
             setupThermalMonitoring()
             startMonitoring()
+            setupOverlayButton()
+            registerOverlayReceiver()
+            restoreOverlayState()
         } else {
             binding.thermalStatusText.text = "Requires Android 10+"
             binding.cpuUsageText.text = "N/A"
+        }
+    }
+    
+    private fun registerOverlayReceiver() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                overlayStoppedReceiver,
+                IntentFilter(OverlayService.ACTION_OVERLAY_STOPPED),
+                RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            registerReceiver(
+                overlayStoppedReceiver,
+                IntentFilter(OverlayService.ACTION_OVERLAY_STOPPED)
+            )
+        }
+    }
+    
+    private fun restoreOverlayState() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedState = prefs.getBoolean(KEY_OVERLAY_ACTIVE, false)
+        
+        val actuallyRunning = isServiceRunning(OverlayService::class.java)
+        
+        isOverlayActive = savedState && actuallyRunning
+        
+        if (savedState && !actuallyRunning) {
+            prefs.edit().putBoolean(KEY_OVERLAY_ACTIVE, false).apply()
+        }
+        
+        binding.toggleOverlayButton.text = if (isOverlayActive) {
+            "Disable Floating Overlay"
+        } else {
+            "Enable Floating Overlay"
+        }
+    }
+    
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    private fun saveOverlayState() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_OVERLAY_ACTIVE, isOverlayActive).apply()
+    }
+    
+    private fun setupOverlayButton() {
+        binding.toggleOverlayButton.setOnClickListener {
+            if (isOverlayActive) {
+                stopOverlayService()
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (Settings.canDrawOverlays(this)) {
+                        startOverlayService()
+                    } else {
+                        requestOverlayPermission()
+                    }
+                } else {
+                    startOverlayService()
+                }
+            }
+        }
+    }
+    
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST_CODE)
+            Toast.makeText(this, "Please grant overlay permission", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun startOverlayService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val intent = Intent(this, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            isOverlayActive = true
+            binding.toggleOverlayButton.text = "Disable Floating Overlay"
+            saveOverlayState()
+            Toast.makeText(this, "Overlay enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun stopOverlayService() {
+        val intent = Intent(this, OverlayService::class.java)
+        stopService(intent)
+        isOverlayActive = false
+        binding.toggleOverlayButton.text = "Enable Floating Overlay"
+        saveOverlayState()
+        Toast.makeText(this, "Overlay disabled", Toast.LENGTH_SHORT).show()
+    }
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == OVERLAY_PERMISSION_REQUEST_CODE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (Settings.canDrawOverlays(this)) {
+                    startOverlayService()
+                } else {
+                    Toast.makeText(this, "Overlay permission denied", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
     
@@ -152,6 +296,10 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopMonitoring()
+        try {
+            unregisterReceiver(overlayStoppedReceiver)
+        } catch (e: IllegalArgumentException) {
+        }
     }
     
     override fun onPause() {
