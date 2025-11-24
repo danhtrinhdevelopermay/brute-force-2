@@ -6,7 +6,7 @@ This is an Android mobile application that monitors real-time CPU and GPU metric
 
 ## Recent Changes
 
-### November 24, 2025 - Gradle Build Configuration Fixed + CPU Usage Monitoring Fixed
+### November 24, 2025 - Gradle Build Fixed + CPU Monitoring Fixed + Floating Overlay Added
 
 #### Build Configuration Fixes
 **Fixed build error**: `GradleScriptException: A problem occurred evaluating root project 'CPU GPU Monitor'`
@@ -37,6 +37,33 @@ This is an Android mobile application that monitors real-time CPU and GPU metric
 - Subsequent readings show accurate real-time CPU usage
 
 **Result**: CPU usage now displays accurate values instead of always showing 0%.
+
+#### Floating Overlay Feature Added
+**New Feature**: Always-on-top floating overlay window displaying real-time metrics
+
+**Implementation**:
+- **OverlayService**: Foreground service managing floating window with WindowManager
+- **FPS Monitoring**: Choreographer-based frame rate tracking (updates per second)
+- **Permission Handling**: Auto-requests SYSTEM_ALERT_WINDOW permission on Android 6+
+- **State Persistence**: SharedPreferences + BroadcastReceiver for consistent UI state across configuration changes
+- **Overlay UI**: Compact card showing CPU%, CPU temp, GPU temp, FPS with color-coded values
+- **Draggable**: User can move overlay anywhere on screen via touch gestures
+- **Closeable**: X button on overlay to stop service without opening main app
+
+**Technical Details**:
+- Overlay updates every 1 second via Handler
+- BroadcastReceiver syncs service state with MainActivity button
+- ActivityManager verifies actual service status on app restart to prevent stale UI state
+- Proper lifecycle management: receiver registration/unregistration prevents memory leaks
+
+**User Experience**:
+1. Tap "Enable Floating Overlay" button in main app
+2. Grant overlay permission (one-time on first use)
+3. Compact floating window appears showing live CPU/GPU/FPS data
+4. Drag overlay to preferred screen position
+5. Close via X button or disable in app
+
+**Result**: Users can monitor system metrics in real-time while using other apps.
 
 ## User Preferences
 
