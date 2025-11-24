@@ -13,24 +13,3 @@ LANG = "en_US.UTF-8"
 expertMode = true
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Validate Project"
-
-[[workflows.workflow]]
-name = "Validate Project"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "./validate_project.sh"
-
-[workflows.workflow.metadata]
-outputType = "console"
