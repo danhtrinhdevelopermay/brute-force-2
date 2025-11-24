@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "CPU GPU Monitor"
+include ':app'
+
+// Gradle wrapper configuration
+wrapper {
+    gradleVersion = '8.2'
+    distributionType = Wrapper.DistributionType.BIN
+}
+

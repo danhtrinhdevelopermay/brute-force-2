@@ -1,0 +1,2 @@
+# The gradle-wrapper.jar will be generated automatically by GitHub Actions
+# or during the first local build with './gradlew wrapper'

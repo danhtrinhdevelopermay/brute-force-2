@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CPU/GPU Monitor</string>
+    <string name="cpu_usage">CPU Usage</string>
+    <string name="gpu_status">GPU Status</string>
+    <string name="thermal_status">Thermal Status</string>
+    <string name="thermal_headroom">Thermal Headroom</string>
+    <string name="cpu_temp">CPU Temperature</string>
+    <string name="gpu_temp">GPU Temperature</string>
+    <string name="battery_temp">Battery Temperature</string>
+    <string name="status_none">Normal</string>
+    <string name="status_light">Light Throttling</string>
+    <string name="status_moderate">Moderate Throttling</string>
+    <string name="status_severe">Severe Throttling</string>
+    <string name="status_critical">Critical</string>
+    <string name="status_emergency">Emergency</string>
+    <string name="status_shutdown">Shutdown Warning</string>
+    <string name="not_available">N/A</string>
+</resources>
