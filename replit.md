@@ -6,7 +6,9 @@ This is an Android mobile application that monitors real-time CPU and GPU metric
 
 ## Recent Changes
 
-### November 24, 2025 - Gradle Build Configuration Fixed
+### November 24, 2025 - Gradle Build Configuration Fixed + CPU Usage Monitoring Fixed
+
+#### Build Configuration Fixes
 **Fixed build error**: `GradleScriptException: A problem occurred evaluating root project 'CPU GPU Monitor'`
 
 **Root Cause**: Repository configuration conflict between `settings.gradle` and `build.gradle`
@@ -21,6 +23,20 @@ This is an Android mobile application that monitors real-time CPU and GPU metric
    - Eliminates repository definition conflict
 
 **Result**: Gradle build now succeeds. Configuration validated with `./gradlew tasks`.
+
+#### CPU Usage Monitoring Fixed
+**Fixed issue**: CPU usage always showing 0%
+
+**Root Cause**: `getCPUUsage()` was using `top` command with fragile output parsing that didn't work reliably on Android.
+
+**New Implementation**:
+- Reads `/proc/stat` to get CPU time statistics (user, nice, system, idle, iowait, irq, softirq)
+- Stores previous CPU stats and compares with current reading
+- Calculates actual CPU usage percentage: `((totalDiff - idleDiff) / totalDiff) * 100`
+- First reading returns 0% (needs two data points to calculate delta)
+- Subsequent readings show accurate real-time CPU usage
+
+**Result**: CPU usage now displays accurate values instead of always showing 0%.
 
 ## User Preferences
 

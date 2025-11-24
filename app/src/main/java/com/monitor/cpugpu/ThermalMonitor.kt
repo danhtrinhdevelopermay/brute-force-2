@@ -17,6 +17,10 @@ class ThermalMonitor(private val context: Context) {
     private var thermalListener: PowerManager.OnThermalStatusChangedListener? = null
     private var statusCallback: ((Int) -> Unit)? = null
     
+    private var lastCpuTotal = 0L
+    private var lastCpuIdle = 0L
+    private var isFirstRead = true
+    
     fun startMonitoring(onStatusChanged: (Int) -> Unit) {
         statusCallback = onStatusChanged
         thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
@@ -137,29 +141,45 @@ class ThermalMonitor(private val context: Context) {
     
     fun getCPUUsage(): Float {
         return try {
-            val process = Runtime.getRuntime().exec("top -n 1")
+            val process = Runtime.getRuntime().exec("cat /proc/stat")
             val reader = BufferedReader(InputStreamReader(process.inputStream))
-            var line: String?
-            var cpuUsage = 0f
+            val line = reader.readLine()
+            reader.close()
             
-            while (reader.readLine().also { line = it } != null) {
-                if (line?.contains("CPU:") == true || line?.contains("cpu") == true) {
-                    val parts = line!!.split("\\s+".toRegex())
-                    for (i in parts.indices) {
-                        if (parts[i].endsWith("%")) {
-                            try {
-                                cpuUsage = parts[i].replace("%", "").toFloat()
-                                break
-                            } catch (e: Exception) {
-                                continue
-                            }
-                        }
+            if (line != null && line.startsWith("cpu ")) {
+                val stats = line.substring(5).trim().split("\\s+".toRegex())
+                
+                if (stats.size >= 4) {
+                    val user = stats[0].toLongOrNull() ?: 0L
+                    val nice = stats[1].toLongOrNull() ?: 0L
+                    val system = stats[2].toLongOrNull() ?: 0L
+                    val idle = stats[3].toLongOrNull() ?: 0L
+                    val iowait = if (stats.size > 4) stats[4].toLongOrNull() ?: 0L else 0L
+                    val irq = if (stats.size > 5) stats[5].toLongOrNull() ?: 0L else 0L
+                    val softirq = if (stats.size > 6) stats[6].toLongOrNull() ?: 0L else 0L
+                    
+                    val total = user + nice + system + idle + iowait + irq + softirq
+                    
+                    if (isFirstRead) {
+                        lastCpuTotal = total
+                        lastCpuIdle = idle
+                        isFirstRead = false
+                        return 0f
                     }
-                    break
+                    
+                    val totalDiff = total - lastCpuTotal
+                    val idleDiff = idle - lastCpuIdle
+                    
+                    lastCpuTotal = total
+                    lastCpuIdle = idle
+                    
+                    if (totalDiff > 0) {
+                        val usage = ((totalDiff - idleDiff).toFloat() / totalDiff.toFloat()) * 100f
+                        return usage.coerceIn(0f, 100f)
+                    }
                 }
             }
-            reader.close()
-            cpuUsage
+            0f
         } catch (e: Exception) {
             0f
         }
